@@ -1,3 +1,5 @@
+import os
+
 from playwright.async_api import Page
 
 from backend.browser.config import BrowserConfig
@@ -10,16 +12,33 @@ class BrowserController:
         self,
         page: Page,
         timeout_ms: int = BrowserConfig.DEFAULT_TIMEOUT_MS,
+        evidence_dir: str = (
+            BrowserConfig.DEFAULT_EVIDENCE_DIR
+        ),
+        capture_evidence: bool = (
+            BrowserConfig.CAPTURE_EVIDENCE
+        ),
     ):
         self.page = page
 
         self.timeout_ms = timeout_ms
+
+        self.evidence_dir = evidence_dir
+
+        self.capture_evidence = (
+            capture_evidence
+        )
 
         self.evidence: list[Evidence] = []
 
         self.telemetry = BrowserTelemetry(page)
 
         self.current_action: str = "unknown"
+
+        os.makedirs(
+            self.evidence_dir,
+            exist_ok=True,
+        )
 
     async def navigate(
         self,
@@ -36,6 +55,8 @@ class BrowserController:
             wait_until="domcontentloaded",
             timeout=self.timeout_ms,
         )
+
+        await self._capture_action_evidence()
 
     async def click(
         self,
@@ -59,6 +80,8 @@ class BrowserController:
         await locator.click(
             timeout=self.timeout_ms
         )
+
+        await self._capture_action_evidence()
 
     async def type(
         self,
@@ -85,6 +108,8 @@ class BrowserController:
             timeout=self.timeout_ms,
         )
 
+        await self._capture_action_evidence()
+
     async def back(self) -> None:
         self.current_action = "back"
 
@@ -94,6 +119,8 @@ class BrowserController:
             wait_until="domcontentloaded",
             timeout=self.timeout_ms,
         )
+
+        await self._capture_action_evidence()
 
     async def forward(self) -> None:
         self.current_action = "forward"
@@ -105,6 +132,8 @@ class BrowserController:
             timeout=self.timeout_ms,
         )
 
+        await self._capture_action_evidence()
+
     async def refresh(self) -> None:
         self.current_action = "refresh"
 
@@ -114,6 +143,8 @@ class BrowserController:
             wait_until="domcontentloaded",
             timeout=self.timeout_ms,
         )
+
+        await self._capture_action_evidence()
 
     async def screenshot(
         self,
@@ -125,6 +156,50 @@ class BrowserController:
             timeout=self.timeout_ms,
         )
 
+        self._record_evidence(
+            screenshot=path
+        )
+
+        self.telemetry.clear()
+
+    async def _capture_action_evidence(
+        self,
+    ) -> None:
+        if not self.capture_evidence:
+            return
+
+        safe_action = (
+            self.current_action
+            .replace(":", "_")
+            .replace("/", "_")
+            .replace(" ", "_")
+        )
+
+        index = len(self.evidence) + 1
+
+        filename = (
+            f"{index:03d}_{safe_action}.png"
+        )
+
+        path = os.path.join(
+            self.evidence_dir,
+            filename,
+        )
+
+        await self.page.screenshot(
+            path=path,
+            full_page=True,
+            timeout=self.timeout_ms,
+        )
+
+        self._record_evidence(
+            screenshot=path
+        )
+
+    def _record_evidence(
+        self,
+        screenshot: str | None = None,
+    ) -> None:
         telemetry = (
             self.telemetry.get_snapshot()
         )
@@ -133,7 +208,7 @@ class BrowserController:
             Evidence(
                 action=self.current_action,
                 url=self.page.url,
-                screenshot=path,
+                screenshot=screenshot,
                 console_errors=(
                     telemetry[
                         "console_errors"
@@ -147,8 +222,6 @@ class BrowserController:
             )
         )
 
-        self.telemetry.clear()
-
     def get_evidence(
         self,
     ) -> list[dict]:
@@ -156,3 +229,4 @@ class BrowserController:
             item.to_dict()
             for item in self.evidence
         ]
+

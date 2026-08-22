@@ -95,6 +95,8 @@ async def main():
                 error,
             )
 
+        # Unsafe navigation must not
+        # change the current page.
         assert (
             browser.page.url
             == "https://example.com/"
@@ -104,16 +106,28 @@ async def main():
             "\n--- EVIDENCE ---"
         )
 
-        for evidence in (
+        evidence = (
             browser.get_evidence()
-        ):
-            print(evidence)
+        )
+
+        for item in evidence:
+            print(item)
+
+        # Navigation automatically creates
+        # one evidence record.
+        #
+        # Explicit screenshot creates
+        # another evidence record.
+        assert len(evidence) == 2
 
         assert (
-            len(
-                browser.get_evidence()
-            )
-            == 1
+            evidence[0]["screenshot"]
+            is not None
+        )
+
+        assert (
+            evidence[1]["screenshot"]
+            == "evidence/executor-test.png"
         )
 
         print(
@@ -122,6 +136,14 @@ async def main():
 
         print(
             "✓ Unsafe action blocked"
+        )
+
+        print(
+            "✓ Automatic evidence captured"
+        )
+
+        print(
+            "✓ Explicit screenshot captured"
         )
 
         print(
@@ -134,3 +156,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+

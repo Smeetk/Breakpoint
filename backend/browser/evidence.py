@@ -33,4 +33,3 @@ class Evidence:
             "console_errors": self.console_errors,
             "failed_requests": self.failed_requests,
         }
-
