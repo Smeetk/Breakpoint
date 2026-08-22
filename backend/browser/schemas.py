@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BrowserAction(BaseModel):
@@ -12,10 +12,15 @@ class BrowserAction(BaseModel):
         "forward",
         "refresh",
         "screenshot",
-        "observe",
     ]
 
     url: str | None = None
+
     selector: str | None = None
+
     text: str | None = None
-    path: str | None = None
+
+    path: str | None = Field(
+        default=None,
+        description="Path for saving a screenshot.",
+    )
