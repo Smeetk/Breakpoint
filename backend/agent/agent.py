@@ -231,19 +231,18 @@ class BreakpointAgent:
         """Ask LLM for next action, validate, retry, fallback."""
         prompt = build_planning_prompt(state, obs)
 
-        for attempt in range(MAX_RETRIES + 1):
-            raw = await llm_call_json(
-                system_prompt=INVESTIGATOR_SYSTEM_PROMPT,
-                user_prompt=prompt,
-                temperature=0.2,
-                max_tokens=400,
-            )
-            if raw:
-                action = self._parse_action(raw, state)
-                if action:
-                    log.info("[AGENT] Planning → %s | %s", action.action, action.reason[:80])
-                    return action
-            log.warning("[AGENT] Plan attempt %d failed, retrying...", attempt + 1)
+        raw = await llm_call_json(
+            system_prompt=INVESTIGATOR_SYSTEM_PROMPT,
+            user_prompt=prompt,
+            temperature=0.2,
+            max_tokens=400,
+        )
+        if raw:
+            action = self._parse_action(raw, state)
+            if action:
+                log.info("[AGENT] Planning → %s | %s", action.action, action.reason[:80])
+                return action
+        log.warning("[AGENT] LLM planning returned no valid action. Using fallback.")
 
         # Deterministic fallback
         return self._fallback_action(state)
@@ -280,23 +279,38 @@ class BreakpointAgent:
             return None
 
     def _fallback_action(self, state: AgentState) -> AgentAction:
-        """Deterministic fallback when LLM planning fails."""
+        """
+        Stateful deterministic fallback when LLM planning fails.
+        Walks through the full bug-discovery scenario in order.
+        """
         log.warning("[AGENT] Using deterministic fallback action")
-        visited = set(state.visited_urls)
-        common_urls = [
-            "http://localhost:3000",
-            "http://localhost:3000/products",
-            "http://localhost:3000/cart",
-            "http://localhost:3000/checkout",
+
+        # Full scenario: explore → add to cart → modify → checkout (trigger bug)
+        scenario = [
+            AgentAction(action=ActionType.NAVIGATE, url="http://localhost:3000",
+                        reason="Fallback: start at home"),
+            AgentAction(action=ActionType.NAVIGATE, url="http://localhost:3000/products",
+                        reason="Fallback: browse products"),
+            AgentAction(action=ActionType.CLICK, selector="button[data-product='headphones']",
+                        reason="Fallback: add headphones to cart"),
+            AgentAction(action=ActionType.NAVIGATE, url="http://localhost:3000/cart",
+                        reason="Fallback: view cart"),
+            AgentAction(action=ActionType.OBSERVE,
+                        reason="Fallback: record cart total before modification"),
+            AgentAction(action=ActionType.CLICK, selector="button[data-action='decrease-qty']",
+                        reason="Fallback: modify cart quantity to trigger bug"),
+            AgentAction(action=ActionType.OBSERVE,
+                        reason="Fallback: record modified cart total"),
+            AgentAction(action=ActionType.NAVIGATE, url="http://localhost:3000/checkout",
+                        reason="Fallback: proceed to checkout"),
+            AgentAction(action=ActionType.OBSERVE,
+                        reason="Fallback: check if checkout total matches modified cart"),
         ]
-        for url in common_urls:
-            if url not in visited:
-                return AgentAction(
-                    action=ActionType.NAVIGATE,
-                    url=url,
-                    reason=f"Fallback: exploring unvisited page {url}",
-                )
-        return AgentAction(action=ActionType.OBSERVE, reason="Fallback: observe current state")
+
+        # Return the next unexecuted step
+        step = state.step_count - 1  # step_count increments after action
+        idx = min(step, len(scenario) - 1)
+        return scenario[idx]
 
     # ------------------------------------------------------------------
     # Anomaly detection

@@ -73,18 +73,28 @@ async def llm_call(
 # ---------------------------------------------------------------------------
 
 
+# Circuit breaker: skip LLM if auth/config error detected
+_llm_disabled: bool = False
+_FAST_FAIL_CODES = {401, 403}  # auth errors — no point retrying
+
+
 async def llm_call_json(
     system_prompt: str,
     user_prompt: str,
     model: Optional[str] = None,
     temperature: float = 0.2,
     max_tokens: int = 800,
-    max_retries: int = 2,
+    max_retries: int = 1,
 ) -> dict[str, Any]:
     """
     Call LLM and parse JSON. Retries on parse failure.
     Returns {} on final failure (never raises).
+    Fast-fails on auth/config errors to allow deterministic fallback.
     """
+    global _llm_disabled
+    if _llm_disabled:
+        return {}
+
     attempt = 0
     last_raw = ""
     current_user_prompt = user_prompt
@@ -110,11 +120,23 @@ async def llm_call_json(
             )
             attempt += 1
         except Exception as exc:
+            exc_str = str(exc)
+            # Fast-fail on auth errors — disable LLM for this run
+            if any(str(code) in exc_str for code in _FAST_FAIL_CODES):
+                log.warning("[LLM] Auth/config error detected. Disabling LLM for this session. Using deterministic fallback.")
+                _llm_disabled = True
+                return {}
             log.error("[LLM] API error attempt %d: %s", attempt, exc)
             attempt += 1
 
     log.warning("[LLM] All %d attempts failed. Last raw: %s", max_retries + 1, last_raw[:200])
     return {}
+
+
+def reset_circuit_breaker() -> None:
+    """Re-enable LLM (e.g., after fixing API key). Useful for tests."""
+    global _llm_disabled
+    _llm_disabled = False
 
 
 def _extract_json(text: str) -> Optional[dict[str, Any]]:
