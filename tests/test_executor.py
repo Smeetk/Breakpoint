@@ -71,6 +71,36 @@ async def main():
         )
 
         print(
+            "\n--- ACTION 3: BLOCK UNSAFE URL ---"
+        )
+
+        unsafe_action = BrowserAction(
+            action="navigate",
+            url="javascript:alert(1)",
+        )
+
+        try:
+            await executor.execute(
+                unsafe_action
+            )
+
+            assert False, (
+                "Unsafe action should "
+                "have been rejected"
+            )
+
+        except ValueError as error:
+            print(
+                "Blocked as expected:",
+                error,
+            )
+
+        assert (
+            browser.page.url
+            == "https://example.com/"
+        )
+
+        print(
             "\n--- EVIDENCE ---"
         )
 
@@ -87,7 +117,15 @@ async def main():
         )
 
         print(
-            "\n✓ Action executor test passed"
+            "\n✓ Valid actions executed"
+        )
+
+        print(
+            "✓ Unsafe action blocked"
+        )
+
+        print(
+            "✓ Action executor test passed"
         )
 
     finally:
@@ -96,4 +134,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

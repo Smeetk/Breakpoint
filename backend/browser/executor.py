@@ -2,58 +2,44 @@ from typing import Any
 
 from backend.browser.controller import BrowserController
 from backend.browser.schemas import BrowserAction
+from backend.browser.validator import ActionValidator
 
 
 class ActionExecutor:
     """
     Executes validated browser actions.
 
-    BrowserAction is the contract between the
-    agent and the browser execution layer.
+    Every action passes through ActionValidator
+    before reaching the browser.
     """
 
     def __init__(
         self,
         browser: BrowserController,
+        validator: ActionValidator | None = None,
     ):
         self.browser = browser
+        self.validator = validator or ActionValidator()
 
     async def execute(
         self,
         action: BrowserAction,
     ) -> dict[str, Any]:
 
-        if action.action == "navigate":
-            if not action.url:
-                raise ValueError(
-                    "Navigate action requires 'url'"
-                )
+        # Safety / validity check
+        self.validator.validate(action)
 
+        if action.action == "navigate":
             await self.browser.navigate(
                 action.url
             )
 
         elif action.action == "click":
-            if not action.selector:
-                raise ValueError(
-                    "Click action requires 'selector'"
-                )
-
             await self.browser.click(
                 action.selector
             )
 
         elif action.action == "type":
-            if not action.selector:
-                raise ValueError(
-                    "Type action requires 'selector'"
-                )
-
-            if action.text is None:
-                raise ValueError(
-                    "Type action requires 'text'"
-                )
-
             await self.browser.type(
                 action.selector,
                 action.text,
@@ -69,11 +55,6 @@ class ActionExecutor:
             await self.browser.refresh()
 
         elif action.action == "screenshot":
-            if not action.path:
-                raise ValueError(
-                    "Screenshot action requires 'path'"
-                )
-
             await self.browser.screenshot(
                 action.path
             )
