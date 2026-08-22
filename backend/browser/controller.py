@@ -1,12 +1,19 @@
 from playwright.async_api import Page
 
+from backend.browser.config import BrowserConfig
 from backend.browser.evidence import Evidence
 from backend.browser.telemetry import BrowserTelemetry
 
 
 class BrowserController:
-    def __init__(self, page: Page):
+    def __init__(
+        self,
+        page: Page,
+        timeout_ms: int = BrowserConfig.DEFAULT_TIMEOUT_MS,
+    ):
         self.page = page
+
+        self.timeout_ms = timeout_ms
 
         self.evidence: list[Evidence] = []
 
@@ -27,6 +34,7 @@ class BrowserController:
         await self.page.goto(
             url,
             wait_until="domcontentloaded",
+            timeout=self.timeout_ms,
         )
 
     async def click(
@@ -39,9 +47,18 @@ class BrowserController:
 
         self.telemetry.clear()
 
-        await self.page.locator(
+        locator = self.page.locator(
             selector
-        ).click()
+        )
+
+        await locator.wait_for(
+            state="visible",
+            timeout=self.timeout_ms,
+        )
+
+        await locator.click(
+            timeout=self.timeout_ms
+        )
 
     async def type(
         self,
@@ -54,9 +71,19 @@ class BrowserController:
 
         self.telemetry.clear()
 
-        await self.page.locator(
+        locator = self.page.locator(
             selector
-        ).fill(text)
+        )
+
+        await locator.wait_for(
+            state="visible",
+            timeout=self.timeout_ms,
+        )
+
+        await locator.fill(
+            text,
+            timeout=self.timeout_ms,
+        )
 
     async def back(self) -> None:
         self.current_action = "back"
@@ -64,7 +91,8 @@ class BrowserController:
         self.telemetry.clear()
 
         await self.page.go_back(
-            wait_until="domcontentloaded"
+            wait_until="domcontentloaded",
+            timeout=self.timeout_ms,
         )
 
     async def forward(self) -> None:
@@ -73,7 +101,8 @@ class BrowserController:
         self.telemetry.clear()
 
         await self.page.go_forward(
-            wait_until="domcontentloaded"
+            wait_until="domcontentloaded",
+            timeout=self.timeout_ms,
         )
 
     async def refresh(self) -> None:
@@ -82,7 +111,8 @@ class BrowserController:
         self.telemetry.clear()
 
         await self.page.reload(
-            wait_until="domcontentloaded"
+            wait_until="domcontentloaded",
+            timeout=self.timeout_ms,
         )
 
     async def screenshot(
@@ -92,6 +122,7 @@ class BrowserController:
         await self.page.screenshot(
             path=path,
             full_page=True,
+            timeout=self.timeout_ms,
         )
 
         telemetry = (
