@@ -7,12 +7,22 @@ from typing import Any
 class Evidence:
     action: str
     url: str
+
     timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+        default_factory=lambda: datetime.now(
+            timezone.utc
+        ).isoformat()
     )
+
     screenshot: str | None = None
-    console_errors: list[str] = field(default_factory=list)
-    failed_requests: list[dict[str, Any]] = field(default_factory=list)
+
+    console_errors: list[str] = field(
+        default_factory=list
+    )
+
+    failed_requests: list[dict[str, Any]] = field(
+        default_factory=list
+    )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -23,3 +33,4 @@ class Evidence:
             "console_errors": self.console_errors,
             "failed_requests": self.failed_requests,
         }
+

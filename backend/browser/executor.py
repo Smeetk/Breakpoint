@@ -8,11 +8,14 @@ class ActionExecutor:
     """
     Executes validated browser actions.
 
-    BrowserAction is the contract between the agent
-    and the browser execution layer.
+    BrowserAction is the contract between the
+    agent and the browser execution layer.
     """
 
-    def __init__(self, browser: BrowserController):
+    def __init__(
+        self,
+        browser: BrowserController,
+    ):
         self.browser = browser
 
     async def execute(
@@ -26,7 +29,9 @@ class ActionExecutor:
                     "Navigate action requires 'url'"
                 )
 
-            await self.browser.navigate(action.url)
+            await self.browser.navigate(
+                action.url
+            )
 
         elif action.action == "click":
             if not action.selector:
@@ -34,7 +39,9 @@ class ActionExecutor:
                     "Click action requires 'selector'"
                 )
 
-            await self.browser.click(action.selector)
+            await self.browser.click(
+                action.selector
+            )
 
         elif action.action == "type":
             if not action.selector:

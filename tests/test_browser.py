@@ -1,17 +1,29 @@
 import asyncio
 import os
-from http.server import BaseHTTPRequestHandler, HTTPServer
+
+from http.server import (
+    BaseHTTPRequestHandler,
+    HTTPServer,
+)
 from threading import Thread
 
-from backend.browser.controller import BrowserController
-from backend.browser.manager import BrowserManager
-from backend.browser.observer import PageObserver
+from backend.browser.controller import (
+    BrowserController,
+)
+from backend.browser.manager import (
+    BrowserManager,
+)
+from backend.browser.observer import (
+    PageObserver,
+)
 
 
 PORT = 8765
 
 
-class TestServerHandler(BaseHTTPRequestHandler):
+class TestServerHandler(
+    BaseHTTPRequestHandler
+):
     def do_GET(self):
         if self.path == "/":
             body = """
@@ -20,12 +32,18 @@ class TestServerHandler(BaseHTTPRequestHandler):
             <head>
                 <title>Telemetry Test</title>
             </head>
+
             <body>
                 <h1>Telemetry Test Page</h1>
-                <button id="trigger-error">Trigger Error</button>
+
+                <button id="trigger-error">
+                    Trigger Error
+                </button>
 
                 <script>
-                    console.error("TEST_CONSOLE_ERROR");
+                    console.error(
+                        "TEST_CONSOLE_ERROR"
+                    );
 
                     fetch("/api/failure")
                         .catch(() => {});
@@ -35,20 +53,26 @@ class TestServerHandler(BaseHTTPRequestHandler):
             """
 
             self.send_response(200)
+
             self.send_header(
                 "Content-Type",
                 "text/html",
             )
+
             self.end_headers()
 
-            self.wfile.write(body.encode())
+            self.wfile.write(
+                body.encode()
+            )
 
         elif self.path == "/api/failure":
             self.send_response(500)
+
             self.send_header(
                 "Content-Type",
                 "application/json",
             )
+
             self.end_headers()
 
             self.wfile.write(
@@ -59,7 +83,11 @@ class TestServerHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
-    def log_message(self, format, *args):
+    def log_message(
+        self,
+        format,
+        *args,
+    ):
         pass
 
 
@@ -81,12 +109,14 @@ def start_test_server():
 
 async def main():
     server = start_test_server()
+
     manager = BrowserManager()
 
     try:
         page = await manager.start()
 
         browser = BrowserController(page)
+
         observer = PageObserver(page)
 
         os.makedirs(
@@ -100,22 +130,43 @@ async def main():
 
         await page.wait_for_timeout(500)
 
-        observation = await observer.observe()
+        observation = (
+            await observer.observe()
+        )
 
-        print("\n--- PAGE OBSERVATION ---")
-        print("URL:", observation["url"])
-        print("Title:", observation["title"])
-        print("Text:", observation["text"])
+        print(
+            "\n--- PAGE OBSERVATION ---"
+        )
+
+        print(
+            "URL:",
+            observation["url"],
+        )
+
+        print(
+            "Title:",
+            observation["title"],
+        )
+
+        print(
+            "Text:",
+            observation["text"],
+        )
+
         print(
             "Elements:",
-            observation["interactive_elements"],
+            observation[
+                "interactive_elements"
+            ],
         )
 
         await browser.screenshot(
             "evidence/telemetry-test.png"
         )
 
-        evidence = browser.get_evidence()
+        evidence = (
+            browser.get_evidence()
+        )
 
         print("\n--- EVIDENCE ---")
 
@@ -124,25 +175,38 @@ async def main():
 
         latest = evidence[-1]
 
-        assert "TEST_CONSOLE_ERROR" in (
-            latest["console_errors"]
+        assert (
+            "TEST_CONSOLE_ERROR"
+            in latest["console_errors"]
         )
 
         assert any(
-            request["url"].endswith("/api/failure")
+            request["url"].endswith(
+                "/api/failure"
+            )
             and request["status"] == 500
-            for request in latest["failed_requests"]
+            for request in latest[
+                "failed_requests"
+            ]
         )
 
-        print("\n✓ Console error captured")
-        print("✓ Failed request captured")
-        print("✓ Telemetry test passed")
+        print(
+            "\n✓ Console error captured"
+        )
+
+        print(
+            "✓ Failed request captured"
+        )
+
+        print(
+            "✓ Telemetry test passed"
+        )
 
     finally:
         await manager.stop()
+
         server.shutdown()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-

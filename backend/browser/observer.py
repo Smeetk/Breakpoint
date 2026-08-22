@@ -7,49 +7,42 @@ class PageObserver:
     def __init__(self, page: Page):
         self.page = page
 
-    async def get_interactive_elements(self) -> list[dict[str, Any]]:
-        elements = []
+    async def observe(self) -> dict[str, Any]:
+        title = await self.page.title()
 
-        locator = self.page.locator(
-            "button, input, textarea, select, a"
+        text = await self.page.locator(
+            "body"
+        ).inner_text()
+
+        interactive_elements = await (
+            self.page.locator(
+                "a, button, input, textarea, select"
+            ).evaluate_all(
+                """
+                elements => elements.map(element => ({
+                    tag: element.tagName.toLowerCase(),
+                    text: (
+                        element.innerText ||
+                        element.value ||
+                        ""
+                    ).trim(),
+                    type: element.getAttribute("type"),
+                    id: element.id || null,
+                    name: element.getAttribute("name"),
+                    placeholder: element.getAttribute(
+                        "placeholder"
+                    ),
+                    href: element.getAttribute("href")
+                }))
+                """
+            )
         )
 
-        count = await locator.count()
-
-        for i in range(count):
-            element = locator.nth(i)
-
-            try:
-                if not await element.is_visible():
-                    continue
-
-                elements.append(
-                    {
-                        "tag": await element.evaluate(
-                            "(el) => el.tagName.toLowerCase()"
-                        ),
-                        "text": (await element.inner_text()).strip(),
-                        "type": await element.get_attribute("type"),
-                        "id": await element.get_attribute("id"),
-                        "name": await element.get_attribute("name"),
-                        "placeholder": await element.get_attribute(
-                            "placeholder"
-                        ),
-                        "href": await element.get_attribute("href"),
-                    }
-                )
-
-            except Exception:
-                continue
-
-        return elements
-
-    async def observe(self) -> dict[str, Any]:
         return {
             "url": self.page.url,
-            "title": await self.page.title(),
-            "text": (
-                await self.page.locator("body").inner_text()
-            ).strip(),
-            "interactive_elements": await self.get_interactive_elements(),
+            "title": title,
+            "text": text,
+            "interactive_elements": (
+                interactive_elements
+            ),
         }
